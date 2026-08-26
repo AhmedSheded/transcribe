@@ -39,6 +39,45 @@ def human_time(seconds: float) -> str:
 OUTPUT_EXTS = {".txt", ".srt"}
 
 
+# English words spoken in the meetings get transliterated into Arabic script
+# by Whisper — often inconsistently (the same word several ways). This maps the
+# transliterations back to the real English word. Keys are matched longest-first
+# so definite-article ("ال") variants win over the bare form. Extend as needed.
+CODESWITCH_MAP = {
+    # interview(s) — Whisper produced 5+ spellings
+    "الانتروبيوز": "the interviews",
+    "الانترويوز": "the interviews",
+    "الانترويوش": "the interviews",
+    "الانتربيوز": "the interviews",
+    "الانتربيو": "the interview",
+    "الانترويو": "the interview",
+    "انتروبيوز": "interviews",
+    "انترويوز": "interviews",
+    "انترويوش": "interviews",
+    "انتربيوز": "interviews",
+    "انتربيو": "interview",
+    "انترويو": "interview",
+    # other mangled terms seen in the recordings
+    "بارت تايم": "part time",
+    "فل تايم": "full time",
+    "تأبتمايز": "optimize",
+    "اكسل شيت": "Excel sheet",
+    "اكسل شي": "Excel sheet",
+    "كارد": "card",
+    "كارت": "card",
+}
+
+
+def postprocess_text(text: str) -> str:
+    """Replace Arabic-transliterated English terms with real English.
+
+    Longest keys first so 'الانتربيو' is handled before 'انتربيو'.
+    """
+    for src in sorted(CODESWITCH_MAP, key=len, reverse=True):
+        text = text.replace(src, CODESWITCH_MAP[src])
+    return text
+
+
 def validate_input(src: Path) -> None:
     """Fail early (and clearly) if src isn't a usable audio/video file.
 
@@ -125,6 +164,8 @@ def main():
                     help="skip ffmpeg loudness normalization (not recommended for quiet recordings)")
     ap.add_argument("--initial-prompt", default=None,
                     help="optional prompt to bias spelling (leave empty to avoid echo on silence)")
+    ap.add_argument("--no-postprocess", action="store_true",
+                    help="skip mapping transliterated English words back to English (see CODESWITCH_MAP)")
     args = ap.parse_args()
 
     src = Path(args.input).expanduser().resolve()
@@ -181,6 +222,8 @@ def main():
                 line = seg.text.strip()
                 if not line:
                     continue
+                if not args.no_postprocess:
+                    line = postprocess_text(line)
                 count += 1
                 ftxt.write(line + "\n")
                 fsrt.write(f"{i}\n{human_time(seg.start)} --> {human_time(seg.end)}\n{line}\n\n")

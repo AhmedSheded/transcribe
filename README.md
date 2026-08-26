@@ -92,6 +92,7 @@ tail -f transcribe.log
 | `--model NAME`      | `large-v3` | Try `medium` / `small` if low on VRAM/RAM |
 | `--no-normalize`    | off | Skip ffmpeg loudness pass (not recommended here) |
 | `--initial-prompt "…"` | none | Bias spelling toward specific terms/names (can cause echo on silence) |
+| `--no-postprocess`  | off | Skip mapping transliterated English words back to English |
 
 Examples:
 
@@ -145,8 +146,14 @@ time") are often transliterated into Arabic script — and inconsistently
 (the same word can come out several different ways). This is inherent to
 Whisper decoding under a forced Arabic language; `large-v3` is already the
 largest model, and seeding `--initial-prompt` with the English terms does
-**not** reliably fix it. The robust fix is a post-processing pass that maps
-the transliterated terms back to English.
+**not** reliably fix it.
+
+To fix it, the script runs a small **post-processing pass** (on by default)
+that maps the known transliterations back to real English — e.g. the five
+spellings of "interview" all become `interview`/`interviews`, `بارت تايم` →
+`part time`, `تأبتمايز` → `optimize`, `اكسل شي` → `Excel sheet`, `كارت` →
+`card`. The mapping lives in `CODESWITCH_MAP` in `transcribe.py`; add your
+own recurring terms there. Disable the pass with `--no-postprocess`.
 
 ---
 
